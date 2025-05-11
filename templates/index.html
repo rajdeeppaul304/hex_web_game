@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hex Grid</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background-color: #111;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .no-select {
+  user-select: none;      
+  -webkit-user-drag: none; 
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+    #grid-wrapper {
+      position: relative;
+      transform: scale(0.5);
+      transform-origin: center center;
+      padding: 0 20px; 
+    }
+
+    #grid-container {
+      position: relative;
+    }
+
+    .hex-tile {
+      position: absolute;
+      transition: transform 0.3s ease, border 0.3s ease;
+      cursor: pointer;
+      border: 3px solid transparent;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+
+    .hex-tile:hover {
+      transform: scale(1.2);
+      -webkit-filter: drop-shadow(0px 0px 20px rgba(0, 255, 255, 0.8));
+      filter: drop-shadow(0px 0px 20px rgba(0, 255, 255, 0.8));
+      z-index: 10;
+    }
+
+    @media (max-width: 768px) {
+      #grid-wrapper {
+        margin: 0 10px; 
+        transform: scale(0.4); 
+      }
+
+      #info-panel {
+        width: 80%; 
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="grid-wrapper" class="no-select">
+    <div id="grid-container"></div>
+  </div>
+
+  <div id="info-panel" class="fixed right-0 top-0 h-full w-96 bg-gray-900 text-white shadow-lg transform translate-x-full transition-transform duration-300 ease-in-out z-50">
+    <div class="p-4">
+      <h2 class="text-xl font-bold mb-4">Tile Info</h2>
+      <img id="info-image" src="" class="w-32 h-32 object-contain mx-auto mb-4 border border-gray-700 rounded">
+      <div class="text-center mb-2">
+        <span class="font-semibold">Coordinates:</span>
+        <span id="info-coords">X: 0, Y: 0</span>
+      </div>
+      <div class="text-sm text-gray-300">
+        <p>This is a mysterious hexagon tile. It might hold secrets...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+const div = document.querySelector('.no-select');
+
+div.addEventListener('mousedown', (e) => e.preventDefault());
+div.setAttribute('draggable', 'false');
+
+    fetch("/hex-data")
+      .then(res => res.json())
+      .then(data => {
+        const container = document.getElementById("grid-container");
+        const infoPanel = document.getElementById("info-panel");
+        const infoImage = document.getElementById("info-image");
+        const infoCoords = document.getElementById("info-coords");
+
+        let maxRight = 0;
+        let maxBottom = 0;
+
+        data.forEach(tile => {
+          const img = document.createElement("img");
+          img.src = `/hexagons/${tile.filename}`;
+          img.className = "hex-tile";
+          img.style.left = `${tile.x}px`;
+          img.style.top = `${tile.y}px`;
+          img.style.width = `${tile.width}px`;
+          img.style.height = `${tile.height}px`;
+          container.appendChild(img);
+
+          img.addEventListener("click", () => {
+            infoImage.src = img.src;
+            // infoCoords.textContent = `X: ${tile.x}, Y: ${tile.y}`;
+            infoCoords.textContent = `${tile.grid_x}, ${tile.grid_y}`;
+
+            infoPanel.classList.remove("translate-x-full");
+          });
+
+          const right = tile.x + tile.width;
+          const bottom = tile.y + tile.height;
+          if (right > maxRight) maxRight = right;
+          if (bottom > maxBottom) maxBottom = bottom;
+        });
+
+        container.style.width = maxRight + 'px';
+        container.style.height = maxBottom + 'px';
+
+        const wrapper = document.getElementById("grid-wrapper");
+        wrapper.style.left = '50%';
+        wrapper.style.top = '50%';
+        wrapper.style.position = 'absolute';
+        wrapper.style.transform = 'translate(-50%, -50%) scale(0.5)';
+      });
+
+    window.addEventListener("click", e => {
+      const panel = document.getElementById("info-panel");
+      if (!panel.contains(e.target) && !e.target.classList.contains("hex-tile")) {
+        panel.classList.add("translate-x-full");
+      }
+    });
+  </script>
+
+</body>
+</html>
