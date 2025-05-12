@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hexagon Clip-Path Visualizer with Image</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #222;
+      color: white;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .visualizer {
+      width: 173px;
+      height: 198px;
+      position: relative;
+      border: 1px dashed #444;
+      margin-bottom: 10px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    #hexagon-mask {
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 255, 255, 0.3);
+      clip-path: polygon(
+        25% 0%, 
+        75% 0%, 
+        100% 50%, 
+        75% 100%, 
+        25% 100%, 
+        0% 50%
+      );
+    }
+    .controls {
+      background: #333;
+      padding: 15px;
+      border-radius: 8px;
+      width: 300px;
+    }
+    .control-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+    }
+    .code {
+      background: #111;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: monospace;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+    .point {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: red;
+      border-radius: 50%;
+      transform: translate(-5px, -5px);
+      z-index: 10;
+    }
+    #image-url {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    .instructions {
+      background: #333;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Hexagon Clip-Path Visualizer with Image</h1>
+  
+  <div class="instructions">
+    <p>1. Paste your hexagon image URL below</p>
+    <p>2. Adjust the points to match your hexagon's edges</p>
+    <p>3. Copy the generated CSS for your project</p>
+  </div>
+
+  <input type="text" id="image-url" placeholder="Paste your hexagon image URL here...">
+  <button onclick="loadImage()">Load Image</button>
+
+  <div class="container">
+    <div>
+      <div class="visualizer" id="visualizer">
+        <div id="hexagon-mask"></div>
+        <div class="point" style="left: 25%; top: 0%"></div>
+        <div class="point" style="left: 75%; top: 0%"></div>
+        <div class="point" style="left: 100%; top: 50%"></div>
+        <div class="point" style="left: 75%; top: 100%"></div>
+        <div class="point" style="left: 25%; top: 100%"></div>
+        <div class="point" style="left: 0%; top: 50%"></div>
+      </div>
+      
+      <div class="controls">
+        <div class="control-group">
+          <label>Point 1 (Top-left): <span id="val1">25% 0%</span></label>
+          <input type="range" id="p1x" min="0" max="100" value="25">
+          <input type="range" id="p1y" min="0" max="100" value="0">
+        </div>
+        
+        <div class="control-group">
+          <label>Point 2 (Top-right): <span id="val2">75% 0%</span></label>
+          <input type="range" id="p2x" min="0" max="100" value="75">
+          <input type="range" id="p2y" min="0" max="100" value="0">
+        </div>
+        
+        <div class="control-group">
+          <label>Point 3 (Right): <span id="val3">100% 50%</span></label>
+          <input type="range" id="p3x" min="0" max="100" value="100">
+          <input type="range" id="p3y" min="0" max="100" value="50">
+        </div>
+      </div>
+    </div>
+    
+    <div>
+      <div class="controls">
+        <div class="control-group">
+          <label>Point 4 (Bottom-right): <span id="val4">75% 100%</span></label>
+          <input type="range" id="p4x" min="0" max="100" value="75">
+          <input type="range" id="p4y" min="0" max="100" value="100">
+        </div>
+        
+        <div class="control-group">
+          <label>Point 5 (Bottom-left): <span id="val5">25% 100%</span></label>
+          <input type="range" id="p5x" min="0" max="100" value="25">
+          <input type="range" id="p5y" min="0" max="100" value="100">
+        </div>
+        
+        <div class="control-group">
+          <label>Point 6 (Left): <span id="val6">0% 50%</span></label>
+          <input type="range" id="p6x" min="0" max="100" value="0">
+          <input type="range" id="p6y" min="0" max="100" value="50">
+        </div>
+      </div>
+      
+      <div class="code">
+        <h3>Your clip-path CSS:</h3>
+        <pre id="css-code">clip-path: polygon(
+  25% 0%,
+  75% 0%,
+  100% 50%,
+  75% 100%,
+  25% 100%,
+  0% 50%
+);</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function updateHexagon() {
+      // Get values from sliders
+      const p1x = document.getElementById('p1x').value;
+      const p1y = document.getElementById('p1y').value;
+      const p2x = document.getElementById('p2x').value;
+      const p2y = document.getElementById('p2y').value;
+      const p3x = document.getElementById('p3x').value;
+      const p3y = document.getElementById('p3y').value;
+      const p4x = document.getElementById('p4x').value;
+      const p4y = document.getElementById('p4y').value;
+      const p5x = document.getElementById('p5x').value;
+      const p5y = document.getElementById('p5y').value;
+      const p6x = document.getElementById('p6x').value;
+      const p6y = document.getElementById('p6y').value;
+      
+      // Update point positions
+      const points = document.querySelectorAll('.point');
+      points[0].style.left = p1x + '%';
+      points[0].style.top = p1y + '%';
+      points[1].style.left = p2x + '%';
+      points[1].style.top = p2y + '%';
+      points[2].style.left = p3x + '%';
+      points[2].style.top = p3y + '%';
+      points[3].style.left = p4x + '%';
+      points[3].style.top = p4y + '%';
+      points[4].style.left = p5x + '%';
+      points[4].style.top = p5y + '%';
+      points[5].style.left = p6x + '%';
+      points[5].style.top = p6y + '%';
+      
+      // Update hexagon mask
+      const polygon = `${p1x}% ${p1y}%, ${p2x}% ${p2y}%, ${p3x}% ${p3y}%, ${p4x}% ${p4y}%, ${p5x}% ${p5y}%, ${p6x}% ${p6y}%`;
+      document.getElementById('hexagon-mask').style.clipPath = `polygon(${polygon})`;
+      document.getElementById('hexagon-mask').style.webkitClipPath = `polygon(${polygon})`;
+      
+      // Update displayed values
+      document.getElementById('val1').textContent = `${p1x}% ${p1y}%`;
+      document.getElementById('val2').textContent = `${p2x}% ${p2y}%`;
+      document.getElementById('val3').textContent = `${p3x}% ${p3y}%`;
+      document.getElementById('val4').textContent = `${p4x}% ${p4y}%`;
+      document.getElementById('val5').textContent = `${p5x}% ${p5y}%`;
+      document.getElementById('val6').textContent = `${p6x}% ${p6y}%`;
+      
+      // Update code display
+      document.getElementById('css-code').textContent = `clip-path: polygon(\n  ${p1x}% ${p1y}%,\n  ${p2x}% ${p2y}%,\n  ${p3x}% ${p3y}%,\n  ${p4x}% ${p4y}%,\n  ${p5x}% ${p5y}%,\n  ${p6x}% ${p6y}%\n);`;
+    }
+    
+    function loadImage() {
+      const url = document.getElementById('image-url').value;
+      if (url) {
+        document.getElementById('visualizer').style.backgroundImage = `url('${url}')`;
+      }
+    }
+    
+    // Initialize all sliders to trigger updates
+    document.querySelectorAll('input[type="range"]').forEach(input => {
+      input.addEventListener('input', updateHexagon);
+    });
+  </script>
+</body>
+</html>

@@ -39,20 +39,53 @@
     }
 
     .hex-tile {
-      position: absolute;
-      transition: transform 0.3s ease, border 0.3s ease;
-      cursor: pointer;
-      border: 3px solid transparent;
-      border-radius: 8px;
-      box-sizing: border-box;
-    }
+  position: absolute;
+  z-index: 1;
+  transition: transform 1s ease, filter 1s ease, -webkit-filter 1s ease;
+  cursor: pointer;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  box-sizing: border-box;
+  clip-path: polygon(
+    50% 0%,
+    100% 25%,
+    100% 75%,
+    50% 100%,
+    0% 75%,
+    0% 25%
+  );
+  -webkit-clip-path: polygon(
+    50% 0%,
+    100% 25%,
+    100% 75%,
+    50% 100%,
+    0% 75%,
+    0% 25%
+  );
+}
 
-    .hex-tile:hover {
-      transform: scale(1.2);
-      -webkit-filter: drop-shadow(0px 0px 20px rgba(0, 255, 255, 0.8));
-      filter: drop-shadow(0px 0px 20px rgba(0, 255, 255, 0.8));
-      z-index: 10;
-    }
+.hex-tile:hover {
+  transition: transform 0.1s ease, filter 0.1s ease, -webkit-filter 0.1s ease;
+  transform: scale(1.2);
+  filter: drop-shadow(10px 10px 10px rgba(0, 255, 255, 0.8))
+        drop-shadow(10px -10px 10px rgba(0, 255, 255, 0.8))
+        drop-shadow(-10px 10px 10px rgba(0, 255, 255, 0.8))
+        drop-shadow(-10px -10px 10px rgba(0, 255, 255, 0.8));
+    padding: 8px;
+
+}
+
+.hex-tile.selected {
+    transform: scale(1.2);
+    filter: drop-shadow(20px 20px 20px red)
+        drop-shadow(20px -20px 20px red)
+        drop-shadow(-20px 20px 20px red)
+        drop-shadow(-20px -20px 20px red);
+    z-index: 20;
+    padding: 10px;
+}
+
+
 
     @media (max-width: 768px) {
       #grid-wrapper {
@@ -64,6 +97,9 @@
         width: 80%; 
       }
     }
+
+
+    
   </style>
 </head>
 <body>
@@ -86,13 +122,36 @@
     </div>
   </div>
 
+
+
+  
+  
+  
   <script>
-
-const div = document.querySelector('.no-select');
-
-div.addEventListener('mousedown', (e) => e.preventDefault());
-div.setAttribute('draggable', 'false');
-
+    let selectedTile = null; // Shared across all tiles
+    const timeoutsMap = new Map(); // Track z-index animations per tile
+    
+    const div = document.querySelector('.no-select');
+    div.addEventListener('mousedown', (e) => e.preventDefault());
+    div.setAttribute('draggable', 'false');
+    
+    // Function to perform the z-index fade-down effect
+    function fadeDownZIndex(img) {
+      if (!img) return;
+    
+      const timeouts = timeoutsMap.get(img) || [];
+      timeouts.forEach(t => clearTimeout(t));
+      timeoutsMap.set(img, []);
+    
+      img.style.zIndex = 5;
+      const newTimeouts = [
+        setTimeout(() => img.style.zIndex = 3, 300),
+        setTimeout(() => img.style.zIndex = 2, 600),
+        setTimeout(() => img.style.zIndex = 1, 1000),
+      ];
+      timeoutsMap.set(img, newTimeouts);
+    }
+    
     fetch("/hex-data")
       .then(res => res.json())
       .then(data => {
@@ -100,10 +159,10 @@ div.setAttribute('draggable', 'false');
         const infoPanel = document.getElementById("info-panel");
         const infoImage = document.getElementById("info-image");
         const infoCoords = document.getElementById("info-coords");
-
+    
         let maxRight = 0;
         let maxBottom = 0;
-
+    
         data.forEach(tile => {
           const img = document.createElement("img");
           img.src = `/hexagons/${tile.filename}`;
@@ -112,37 +171,117 @@ div.setAttribute('draggable', 'false');
           img.style.top = `${tile.y}px`;
           img.style.width = `${tile.width}px`;
           img.style.height = `${tile.height}px`;
+          img.style.zIndex = 1;
           container.appendChild(img);
-
+    
+          // Tile click event
           img.addEventListener("click", () => {
+            if (selectedTile && selectedTile !== img) {
+              selectedTile.classList.remove("selected");
+              fadeDownZIndex(selectedTile); // Apply fade when deselected
+            }
+    
+            img.classList.add("selected");
+            img.style.zIndex = 20;
+            selectedTile = img;
+    
             infoImage.src = img.src;
-            // infoCoords.textContent = `X: ${tile.x}, Y: ${tile.y}`;
             infoCoords.textContent = `${tile.grid_x}, ${tile.grid_y}`;
-
             infoPanel.classList.remove("translate-x-full");
           });
+    
+          // Hover Z-index transitions
+          img.addEventListener("mouseenter", () => {
+            if (!img.classList.contains("selected")) {
+              const timeouts = timeoutsMap.get(img) || [];
+              timeouts.forEach(t => clearTimeout(t));
+              timeoutsMap.set(img, []);
+              img.style.zIndex = 5;
+    
+              setTimeout(() => {
+                if (img.matches(':hover')) {
+                  img.style.zIndex = 10;
+                }
+              }, 300);
+            }
+          });
+    
+          img.addEventListener("mouseleave", () => {
+            if (!img.classList.contains("selected")) {
+              fadeDownZIndex(img);
+            }
+          });
 
+
+          img.addEventListener("touchstart", () => {
+            if (!img.classList.contains("selected")) {
+                const timeouts = timeoutsMap.get(img) || [];
+                timeouts.forEach(t => clearTimeout(t));
+                timeoutsMap.set(img, []);
+                img.style.zIndex = 10;
+            }
+            });
+
+            img.addEventListener("touchend", () => {
+            if (!img.classList.contains("selected")) {
+                fadeDownZIndex(img);
+            }
+            });
+                
+          // Track max extents for container size
           const right = tile.x + tile.width;
           const bottom = tile.y + tile.height;
           if (right > maxRight) maxRight = right;
           if (bottom > maxBottom) maxBottom = bottom;
         });
-
+    
         container.style.width = maxRight + 'px';
         container.style.height = maxBottom + 'px';
-
+    
         const wrapper = document.getElementById("grid-wrapper");
         wrapper.style.left = '50%';
         wrapper.style.top = '50%';
         wrapper.style.position = 'absolute';
         wrapper.style.transform = 'translate(-50%, -50%) scale(0.5)';
       });
+    
+      window.addEventListener("click", e => {
+  const panel = document.getElementById("info-panel");
+  if (!panel.contains(e.target) && !e.target.classList.contains("hex-tile")) {
+    panel.classList.add("translate-x-full");
 
-    window.addEventListener("click", e => {
-      const panel = document.getElementById("info-panel");
-      if (!panel.contains(e.target) && !e.target.classList.contains("hex-tile")) {
-        panel.classList.add("translate-x-full");
-      }
+    if (selectedTile) {
+      selectedTile.classList.remove("selected");
+      fadeDownZIndex(selectedTile);
+      selectedTile = null;
+    }
+  }
+});
+
+    </script>
+    
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log(document.querySelectorAll('.hex-tile').length);
+
+      document.querySelectorAll('.hex-tile').forEach(tile => {
+        let timeout;
+  
+        tile.addEventListener('mouseenter', () => {
+          console.log('Mouse entered tile');
+          clearTimeout(timeout);
+          tile.style.zIndex = 10;
+        });
+  
+        tile.addEventListener('mouseleave', () => {
+          tile.style.zIndex = 5;
+          timeout = setTimeout(() => {
+            tile.style.zIndex = 1;
+          }, 3000);
+        });
+      });
     });
   </script>
 
