@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hex Grid Splitter with ZIP Download</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      font-family: sans-serif;
+    }
+    #controls {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(255,255,255,0.9);
+      padding: 10px;
+      border-radius: 6px;
+      z-index: 100;
+      max-width: 300px;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+    }
+    #hexContainer {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      padding: 20px;
+    }
+    .hexWrapper {
+      background: rgba(255,255,255,0.1);
+      padding: 5px;
+      border-radius: 5px;
+      text-align: center;
+    }
+    .hexImage {
+      max-width: 150px;
+      max-height: 150px;
+    }
+    #downloadAll {
+      margin-top: 10px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+  <div id="controls">
+    <input type="file" id="imageLoader" accept="image/*" /><br><br>
+    Columns: <input type="number" id="columns" value="8" min="1" /><br><br>
+    Hex Size: <input type="number" id="hexSize" value="50" min="1" /><br><br>
+    Orientation:
+    <select id="orientation">
+      <option value="flat">Flat-Top</option>
+      <option value="pointy">Pointy-Top</option>
+    </select><br><br>
+    Line Color: <input type="color" id="lineColor" value="#ff0000" /><br><br>
+    <button onclick="draw()">Draw Grid</button>
+    <button onclick="splitHexes()">Split Hexes</button>
+    <button id="downloadAll" onclick="downloadAllHexes()" disabled>Download All Hexes</button>
+    <button id="downloadZip" onclick="downloadAsZip()" disabled>Download as ZIP</button>
+  </div>
+  <canvas id="canvas"></canvas>
+  <div id="hexContainer"></div>
+
+  <script>
+    const imageLoader = document.getElementById('imageLoader');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const hexContainer = document.getElementById('hexContainer');
+    let img = new Image();
+    let hexImages = [];
+    let showGrid = true;
+
+    imageLoader.addEventListener('change', handleImage, false);
+
+    function handleImage(e) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        img.onload = function() {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          draw();
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    }
+
+    function drawHex(x, y, size, orientation) {
+      const angleOffset = orientation === 'flat' ? 0 : Math.PI / 6;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i + angleOffset;
+        const px = x + size * Math.cos(angle);
+        const py = y + size * Math.sin(angle);
+        if (i === 0) {
+          ctx.moveTo(px, py);
+        } else {
+          ctx.lineTo(px, py);
+        }
+      }
+      ctx.closePath();
+      if (showGrid) {
+        ctx.stroke();
+      }
+    }
+
+    function draw() {
+      if (!img.src) return;
+      const colCount = parseInt(document.getElementById('columns').value, 10);
+      const hexSize = parseInt(document.getElementById('hexSize').value, 10);
+      const orientation = document.getElementById('orientation').value;
+      const lineColor = document.getElementById('lineColor').value;
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+
+      if (showGrid) {
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1;
+      }
+
+      const hexHeight = orientation === 'flat' ? Math.sqrt(3) * hexSize : 2 * hexSize;
+      const hexWidth = orientation === 'flat' ? 2 * hexSize : Math.sqrt(3) * hexSize;
+      const vertDist = hexHeight * 0.75;
+      const horizDist = hexWidth * 0.75;
+
+      const rowCount = Math.ceil(canvas.height / vertDist) + 1;
+
+      for (let row = 0; row < rowCount; row++) {
+        for (let col = 0; col < colCount; col++) {
+          let x, y;
+          if (orientation === 'flat') {
+            x = col * horizDist;
+            y = row * hexHeight + (col % 2 === 0 ? 0 : hexHeight / 2);
+          } else {
+            x = col * hexWidth + (row % 2 === 0 ? 0 : hexWidth / 2);
+            y = row * vertDist;
+          }
+          drawHex(x, y, hexSize, orientation);
+        }
+      }
+    }
+
+    function getHexCorners(x, y, size, orientation) {
+      const angleOffset = orientation === 'flat' ? 0 : Math.PI / 6;
+      const corners = [];
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i + angleOffset;
+        corners.push({
+          x: x + size * Math.cos(angle),
+          y: y + size * Math.sin(angle)
+        });
+      }
+      return corners;
+    }
+
+    function isHexComplete(corners, canvasWidth, canvasHeight) {
+      // Buffer of 1px to account for rounding errors
+      const buffer = 1;
+      for (const point of corners) {
+        if (point.x < -buffer || point.x > canvasWidth + buffer || 
+            point.y < -buffer || point.y > canvasHeight + buffer) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function cropHexFromCanvas(centerX, centerY, size, orientation) {
+      const corners = getHexCorners(centerX, centerY, size, orientation);
+      
+      // Create a temporary canvas for the hexagon
+      const hexCanvas = document.createElement('canvas');
+      const hexCtx = hexCanvas.getContext('2d');
+      
+      // Calculate hexagon bounds
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      corners.forEach(point => {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+      });
+      
+      const width = maxX - minX;
+      const height = maxY - minY;
+      
+      hexCanvas.width = width;
+      hexCanvas.height = height;
+      
+      // Draw the original image content clipped to the hexagon
+      hexCtx.save();
+      hexCtx.translate(-minX, -minY);
+      
+      // Create hexagon path
+      hexCtx.beginPath();
+      hexCtx.moveTo(corners[0].x, corners[0].y);
+      for (let i = 1; i < 6; i++) {
+        hexCtx.lineTo(corners[i].x, corners[i].y);
+      }
+      hexCtx.closePath();
+      hexCtx.clip();
+      
+      // Draw the clipped image (without the grid lines)
+      showGrid = false;
+      draw();
+      showGrid = true;
+      
+      // Draw the image content
+      hexCtx.drawImage(canvas, 0, 0);
+      hexCtx.restore();
+      
+      return hexCanvas.toDataURL();
+    }
+
+    function splitHexes() {
+      if (!img.src) return;
+      
+      const colCount = parseInt(document.getElementById('columns').value, 10);
+      const hexSize = parseInt(document.getElementById('hexSize').value, 10);
+      const orientation = document.getElementById('orientation').value;
+      
+      const hexHeight = orientation === 'flat' ? Math.sqrt(3) * hexSize : 2 * hexSize;
+      const hexWidth = orientation === 'flat' ? 2 * hexSize : Math.sqrt(3) * hexSize;
+      const vertDist = hexHeight * 0.75;
+      const horizDist = hexWidth * 0.75;
+      
+      const rowCount = Math.ceil(canvas.height / vertDist) + 1;
+      
+      hexContainer.innerHTML = '';
+      hexImages = [];
+      
+      for (let row = 0; row < rowCount; row++) {
+        for (let col = 0; col < colCount; col++) {
+          let x, y;
+          if (orientation === 'flat') {
+            x = col * horizDist;
+            y = row * hexHeight + (col % 2 === 0 ? 0 : hexHeight / 2);
+          } else {
+            x = col * hexWidth + (row % 2 === 0 ? 0 : hexWidth / 2);
+            y = row * vertDist;
+          }
+          
+          // Get hexagon corners
+          const corners = getHexCorners(x, y, hexSize, orientation);
+          
+          // Check if hexagon is complete (all corners within image bounds)
+          if (!isHexComplete(corners, canvas.width, canvas.height)) {
+            continue; // Skip incomplete hexes
+          }
+          
+          const hexData = cropHexFromCanvas(x, y, hexSize, orientation);
+          hexImages.push({
+            data: hexData,
+            row: row,
+            col: col
+          });
+          
+          const hexWrapper = document.createElement('div');
+          hexWrapper.className = 'hexWrapper';
+          
+          const hexImg = document.createElement('img');
+          hexImg.src = hexData;
+          hexImg.className = 'hexImage';
+          hexImg.alt = `Hexagon r${row} c${col}`;
+          
+          const hexLabel = document.createElement('div');
+          hexLabel.textContent = `Hexagon r${row} c${col}`;
+          
+          const downloadBtn = document.createElement('button');
+          downloadBtn.textContent = 'Download';
+          downloadBtn.onclick = function() {
+            downloadHex(hexData, `hexagon_r${row}_c${col}.png`);
+          };
+          
+          hexWrapper.appendChild(hexImg);
+          hexWrapper.appendChild(hexLabel);
+          hexWrapper.appendChild(downloadBtn);
+          hexContainer.appendChild(hexWrapper);
+        }
+      }
+      
+      document.getElementById('downloadAll').disabled = hexImages.length === 0;
+      document.getElementById('downloadZip').disabled = hexImages.length === 0;
+      
+      // Redraw the grid after extraction
+      draw();
+    }
+
+    function downloadHex(dataUrl, filename) {
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = dataUrl;
+      link.click();
+    }
+
+    function downloadAllHexes() {
+      hexImages.forEach((hex, index) => {
+        setTimeout(() => {
+          downloadHex(hex.data, `hexagon_r${hex.row}_c${hex.col}.png`);
+        }, index * 100); // Stagger downloads to avoid browser blocking
+      });
+    }
+
+    async function downloadAsZip() {
+      if (hexImages.length === 0) return;
+      
+      const zip = new JSZip();
+      const imgFolder = zip.folder("hexagons");
+      
+      // Add each hexagon to the zip
+      hexImages.forEach(hex => {
+        const base64Data = hex.data.split(',')[1];
+        imgFolder.file(`hexagon_r${hex.row}_c${hex.col}.png`, base64Data, {base64: true});
+      });
+      
+      // Generate the zip file
+      const content = await zip.generateAsync({type: "blob"});
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(content);
+      link.download = 'hexagons.zip';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>

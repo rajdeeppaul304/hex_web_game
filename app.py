@@ -5,8 +5,8 @@ from PIL import Image
 app = Flask(__name__)
 
 HEXAGON_FOLDER = "output/hexagons"
-ROWS = list(range(3, 12)) 
-COLS = list(range(1, 12)) 
+ROWS = list(range(1, 20))  # r1 to r11
+COLS = list(range(0, 23))  # c0 to c22
 
 def hex_filename(r, c):
     return f"hexagon_r{r}_c{c}.png"

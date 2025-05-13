@@ -29,7 +29,7 @@
 
     #grid-wrapper {
       position: relative;
-      transform: scale(0.5);
+      transform: scale(0.8);
       transform-origin: center center;
       padding: 0 20px; 
     }
@@ -43,7 +43,7 @@
   z-index: 1;
   transition: transform 1s ease, filter 1s ease, -webkit-filter 1s ease;
   cursor: pointer;
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   border-radius: 8px;
   box-sizing: border-box;
   clip-path: polygon(
@@ -65,13 +65,15 @@
 }
 
 .hex-tile:hover {
-  transition: transform 0.1s ease, filter 0.1s ease, -webkit-filter 0.1s ease;
+  transition: transform 0.01s ease, filter 0.01s ease, -webkit-filter 0.01s ease;
+  /* transition: transform 0.1s ease, filter 0.1s ease, -webkit-filter 0.1s ease; */
+
   transform: scale(1.2);
   filter: drop-shadow(10px 10px 10px rgba(0, 255, 255, 0.8))
         drop-shadow(10px -10px 10px rgba(0, 255, 255, 0.8))
         drop-shadow(-10px 10px 10px rgba(0, 255, 255, 0.8))
         drop-shadow(-10px -10px 10px rgba(0, 255, 255, 0.8));
-    padding: 8px;
+    padding: 4px;
 
 }
 
@@ -82,7 +84,7 @@
         drop-shadow(-20px 20px 20px red)
         drop-shadow(-20px -20px 20px red);
     z-index: 20;
-    padding: 10px;
+    padding: 6px;
 }
 
 
@@ -242,7 +244,7 @@
         wrapper.style.left = '50%';
         wrapper.style.top = '50%';
         wrapper.style.position = 'absolute';
-        wrapper.style.transform = 'translate(-50%, -50%) scale(0.5)';
+        wrapper.style.transform = 'translate(-50%, -50%) scale(0.8)';
       });
     
       window.addEventListener("click", e => {
