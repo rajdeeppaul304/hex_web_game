@@ -29,7 +29,7 @@
 
     #grid-wrapper {
       position: relative;
-      transform: scale(0.8);
+      transform: scale(0.2);
       transform-origin: center center;
       padding: 0 20px; 
     }
@@ -107,6 +107,12 @@
 <body>
 
   <div id="grid-wrapper" class="no-select">
+    <button id="change_hex" class="text-white"> change hex</button>
+    <br>
+    <a id="hex_maker" class="text-white" href="{{url_for('hex_grid_maker')}}">hex maker</a>
+    <br>
+    <a id="hex_visualizer" class="text-white" href="{{url_for('hex_visualizer')}}">hex visualizer</a>
+
     <div id="grid-container"></div>
   </div>
 
@@ -127,24 +133,29 @@
 
 
   
-  
-  
   <script>
-    let selectedTile = null; // Shared across all tiles
-    const timeoutsMap = new Map(); // Track z-index animations per tile
-    
+    const params = new URLSearchParams(window.location.search);
+    const set = params.get("set") || "1";
+  
+    // Switch set button
+    document.getElementById("change_hex").addEventListener("click", () => {
+      const newSet = set === "1" ? "2" : "1";
+      window.location.href = `/?set=${newSet}`;
+    });
+  
+    let selectedTile = null;
+    const timeoutsMap = new Map();
+  
     const div = document.querySelector('.no-select');
     div.addEventListener('mousedown', (e) => e.preventDefault());
     div.setAttribute('draggable', 'false');
-    
-    // Function to perform the z-index fade-down effect
+  
     function fadeDownZIndex(img) {
       if (!img) return;
-    
       const timeouts = timeoutsMap.get(img) || [];
       timeouts.forEach(t => clearTimeout(t));
       timeoutsMap.set(img, []);
-    
+  
       img.style.zIndex = 5;
       const newTimeouts = [
         setTimeout(() => img.style.zIndex = 3, 300),
@@ -153,21 +164,26 @@
       ];
       timeoutsMap.set(img, newTimeouts);
     }
-    
-    fetch("/hex-data")
+  
+    fetch(`/hex-data?set=${set}`)
       .then(res => res.json())
       .then(data => {
+        if (data.error) {
+          console.error("Error:", data.error);
+          return;
+        }
+  
         const container = document.getElementById("grid-container");
         const infoPanel = document.getElementById("info-panel");
         const infoImage = document.getElementById("info-image");
         const infoCoords = document.getElementById("info-coords");
-    
+  
         let maxRight = 0;
         let maxBottom = 0;
-    
+  
         data.forEach(tile => {
           const img = document.createElement("img");
-          img.src = `/hexagons/${tile.filename}`;
+          img.src = tile.filename;
           img.className = "hex-tile";
           img.style.left = `${tile.x}px`;
           img.style.top = `${tile.y}px`;
@@ -175,31 +191,30 @@
           img.style.height = `${tile.height}px`;
           img.style.zIndex = 1;
           container.appendChild(img);
-    
-          // Tile click event
+  
+          // Tile click
           img.addEventListener("click", () => {
             if (selectedTile && selectedTile !== img) {
               selectedTile.classList.remove("selected");
-              fadeDownZIndex(selectedTile); // Apply fade when deselected
+              fadeDownZIndex(selectedTile);
             }
-    
             img.classList.add("selected");
             img.style.zIndex = 20;
             selectedTile = img;
-    
+  
             infoImage.src = img.src;
             infoCoords.textContent = `${tile.grid_x}, ${tile.grid_y}`;
             infoPanel.classList.remove("translate-x-full");
           });
-    
-          // Hover Z-index transitions
+  
+          // Hover in
           img.addEventListener("mouseenter", () => {
             if (!img.classList.contains("selected")) {
               const timeouts = timeoutsMap.get(img) || [];
               timeouts.forEach(t => clearTimeout(t));
               timeoutsMap.set(img, []);
               img.style.zIndex = 5;
-    
+  
               setTimeout(() => {
                 if (img.matches(':hover')) {
                   img.style.zIndex = 10;
@@ -207,62 +222,62 @@
               }, 300);
             }
           });
-    
+  
+          // Hover out
           img.addEventListener("mouseleave", () => {
             if (!img.classList.contains("selected")) {
               fadeDownZIndex(img);
             }
           });
-
-
+  
+          // Touch support
           img.addEventListener("touchstart", () => {
             if (!img.classList.contains("selected")) {
-                const timeouts = timeoutsMap.get(img) || [];
-                timeouts.forEach(t => clearTimeout(t));
-                timeoutsMap.set(img, []);
-                img.style.zIndex = 10;
+              const timeouts = timeoutsMap.get(img) || [];
+              timeouts.forEach(t => clearTimeout(t));
+              timeoutsMap.set(img, []);
+              img.style.zIndex = 10;
             }
-            });
-
-            img.addEventListener("touchend", () => {
+          });
+  
+          img.addEventListener("touchend", () => {
             if (!img.classList.contains("selected")) {
-                fadeDownZIndex(img);
+              fadeDownZIndex(img);
             }
-            });
-                
-          // Track max extents for container size
+          });
+  
+          // Track max extents
           const right = tile.x + tile.width;
           const bottom = tile.y + tile.height;
           if (right > maxRight) maxRight = right;
           if (bottom > maxBottom) maxBottom = bottom;
         });
-    
+  
         container.style.width = maxRight + 'px';
         container.style.height = maxBottom + 'px';
-    
+  
         const wrapper = document.getElementById("grid-wrapper");
         wrapper.style.left = '50%';
         wrapper.style.top = '50%';
         wrapper.style.position = 'absolute';
         wrapper.style.transform = 'translate(-50%, -50%) scale(0.8)';
       });
-    
-      window.addEventListener("click", e => {
-  const panel = document.getElementById("info-panel");
-  if (!panel.contains(e.target) && !e.target.classList.contains("hex-tile")) {
-    panel.classList.add("translate-x-full");
-
-    if (selectedTile) {
-      selectedTile.classList.remove("selected");
-      fadeDownZIndex(selectedTile);
-      selectedTile = null;
-    }
-  }
-});
-
-    </script>
-    
-
+  
+    // Dismiss info panel on outside click
+    window.addEventListener("click", e => {
+      const panel = document.getElementById("info-panel");
+      if (!panel.contains(e.target) && !e.target.classList.contains("hex-tile")) {
+        panel.classList.add("translate-x-full");
+  
+        if (selectedTile) {
+          selectedTile.classList.remove("selected");
+          fadeDownZIndex(selectedTile);
+          selectedTile = null;
+        }
+      }
+    });
+  </script>
+  
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
